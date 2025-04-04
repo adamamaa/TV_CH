@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고정 화면 크기 레트로 TV 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 사용자 정의 스타일 */
+        body {
+            font-family: 'Inter', sans-serif; /* 기본 폰트 설정 */
+            background-color: #f3f4f6; /* 약간 밝은 배경 */
+        }
+        /* TV 화면 스타일 */
+        #tv-screen {
+            overflow: hidden;
+            position: relative; /* 내부 절대 위치 요소 기준 */
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.6); /* 내부 그림자 강화 */
+            border-radius: 10px; /* 화면 모서리 약간 둥글게 */
+        }
+        /* 채널 버튼 활성 상태 스타일 */
+        .channel-button.active {
+             background-color: #d97706; /* 활성 버튼 색상 (주황색 계열) */
+             color: white;
+             font-weight: bold;
+             box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+        /* 텍스트 오버레이 스타일 */
+        .text-overlay {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background-color: rgba(0, 0, 0, 0.7); /* 배경 약간 더 진하게 */
+            color: white;
+            padding: 8px 12px; /* 패딩 조정 */
+            font-size: 1rem;
+            z-index: 10; /* 다른 요소 위에 표시 */
+            border-radius: 0 0 9px 9px; /* 화면 하단 둥근 모서리에 맞춤 */
+        }
+        /* 채널 기본 배경 스타일 (화면 채우기) */
+        .channel-background-fill {
+            position: absolute;
+            inset: 0; /* top, right, bottom, left = 0 */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- 채널 애니메이션 정의 --- */
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-30px); } }
+        .sports-ball { position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); width: 30px; height: 30px; background-color: #f59e0b; border-radius: 50%; animation: bounce 1s ease-in-out infinite; z-index: 5; }
+        @keyframes pulse-bg { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+        .music-content { position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; height: 100%; color: white; font-size: 1.5rem; text-shadow: 1px 1px 2px black; }
+        @keyframes rotate-sun { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .weather-sun { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); width: 50px; height: 50px; background-color: #facc15; border-radius: 50%; animation: rotate-sun 10s linear infinite; box-shadow: 0 0 20px #facc15; z-index: 5;}
+
+        /* 6번 채널: 구름 애니메이션 추가 */
+        @keyframes move-clouds {
+            from { transform: translateX(-150px); } /* 화면 왼쪽 밖에서 시작 */
+            to { transform: translateX(100%); } /* 화면 오른쪽 너머로 이동 */
+        }
+        .cloud {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.85); /* 구름 색상 및 투명도 */
+            border-radius: 50%;
+            z-index: 3; /* 태양(5)보다 뒤, 배경(0)보다 앞 */
+            animation: move-clouds linear infinite;
+            /* 그림자 효과로 입체감 */
+            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.1));
+        }
+        /* 구름 모양 만들기 (여러 개의 원 조합) */
+        .cloud-shape-1 { width: 60px; height: 60px; }
+        .cloud-shape-1::before, .cloud-shape-1::after {
+            content: '';
+            position: absolute;
+            background-color: inherit; /* 부모 색상 상속 */
+            border-radius: 50%;
+        }
+        .cloud-shape-1::before { width: 40px; height: 40px; top: -20px; left: 10px; }
+        .cloud-shape-1::after { width: 50px; height: 50px; top: -5px; left: -25px; }
+
+        .cloud-shape-2 { width: 80px; height: 80px; }
+        .cloud-shape-2::before, .cloud-shape-2::after {
+             content: ''; position: absolute; background-color: inherit; border-radius: 50%;
+        }
+        .cloud-shape-2::before { width: 50px; height: 50px; top: -30px; left: 20px; }
+        .cloud-shape-2::after { width: 60px; height: 60px; top: -10px; left: -35px; }
+
+        /* 각 구름의 위치와 속도 다르게 설정 */
+        .cloud-1 { top: 15%; left: 0; animation-duration: 25s; animation-delay: -5s; } /* 느리게, 약간 먼저 시작 */
+        .cloud-2 { top: 30%; left: 0; animation-duration: 35s; animation-delay: 0s; } /* 더 느리게 */
+
+
+        @keyframes steam { 0% { transform: translateY(0) scale(1); opacity: 0.6; } 100% { transform: translateY(-50px) scale(1.5); opacity: 0; } }
+        .cooking-pot { position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); width: 80px; height: 60px; background-color: #a1a1aa; border-radius: 5px 5px 30px 30px; border-top: 5px solid #71717a; z-index: 5;}
+        .cooking-pot::before, .cooking-pot::after { content: ''; position: absolute; bottom: 100%; left: 50%; width: 8px; height: 20px; background-color: rgba(255, 255, 255, 0.5); border-radius: 50%; animation: steam 2s ease-out infinite; opacity: 0; z-index: 5;}
+        .cooking-pot::before { transform: translateX(-15px); animation-delay: 0s; }
+        .cooking-pot::after { transform: translateX(5px); animation-delay: 1s; }
+        @keyframes pong-ball-move { 0% { top: 50%; left: 15%; transform: translate(-50%, -50%); } 25% { top: 10%; } 50% { top: 50%; left: 85%; transform: translate(-50%, -50%); } 75% { top: 90%; } 100% { top: 50%; left: 15%; transform: translate(-50%, -50%); } }
+        .game-paddle { position: absolute; top: 50%; transform: translateY(-50%); width: 10px; height: 60px; background-color: white; z-index: 5;}
+        .game-paddle-left { left: 5%; }
+        .game-paddle-right { right: 5%; }
+        .game-ball { position: absolute; width: 15px; height: 15px; background-color: white; animation: pong-ball-move 4s linear infinite; z-index: 5;}
+        @keyframes grow-bar { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+        .news-chart-container { display: flex; justify-content: space-around; align-items: flex-end; width: 80%; height: 70%; position: absolute; bottom: 15%; left: 10%; z-index: 5; }
+        .news-bar { width: 15%; background-color: #3b82f6; border: 1px solid #1e40af; transform-origin: bottom; animation: grow-bar 1.5s ease-out forwards; }
+        .news-bar-1 { height: 60%; animation-delay: 0.1s; background-color: #ef4444; }
+        .news-bar-2 { height: 80%; animation-delay: 0.3s; background-color: #f97316; }
+        .news-bar-3 { height: 50%; animation-delay: 0.5s; background-color: #84cc16; }
+        .news-bar-4 { height: 70%; animation-delay: 0.7s; background-color: #14b8a6; }
+        @keyframes spotlight-move { 0% { background-position: -100% 50%; } 100% { background-position: 200% 50%; } }
+        @keyframes text-fade-in { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        .movie-spotlight-overlay { position: absolute; inset: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 50%); background-size: 200% 200%; animation: spotlight-move 5s linear infinite; mix-blend-mode: screen; z-index: 5;}
+        .movie-coming-soon-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #eab308; font-size: 2rem; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); opacity: 0; animation: text-fade-in 2s ease-out 1s forwards; z-index: 6; }
+        @keyframes twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+        .docu-star { position: absolute; width: 2px; height: 2px; background-color: white; border-radius: 50%; opacity: 0.2; animation: twinkle 3s ease-in-out infinite; z-index: 5;}
+
+        /* 레트로 TV 스타일 추가 */
+        .tv-antenna { position: absolute; width: 6px; height: 70px; background-color: #9ca3af; border-radius: 3px; bottom: 100%; left: 50%; transform-origin: bottom center; z-index: -1; }
+        .tv-antenna-left { transform: translateX(-10px) rotate(-30deg); }
+        .tv-antenna-right { transform: translateX(10px) rotate(30deg); }
+        .tv-antenna-base { position: absolute; width: 25px; height: 15px; background-color: #4b5563; border-radius: 50% 50% 0 0; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(5px); z-index: -1; }
+        .tv-leg { width: 20px; height: 60px; background-color: #a16207; transform: skewX(-10deg); box-shadow: 2px 2px 5px rgba(0,0,0,0.3); }
+        .speaker-grille { background: repeating-linear-gradient( to bottom, #78350f, #78350f 2px, transparent 2px, transparent 6px ); }
+        .static-knob { width: 30px; height: 30px; background-color: #f59e0b; border-radius: 50%; border: 2px solid #92400e; box-shadow: inset 0 0 5px rgba(0,0,0,0.4); }
+
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-8">
+
+    <div class="relative inline-block">
+        <div class="tv-antenna-base"></div>
+        <div class="tv-antenna tv-antenna-left"></div>
+        <div class="tv-antenna tv-antenna-right"></div>
+
+        <div class="bg-amber-900 p-4 rounded-lg shadow-xl w-full">
+            <div class="bg-gradient-to-b from-yellow-700 to-yellow-800 p-6 rounded-md shadow-inner flex gap-6 w-[960px]">
+                <div id="tv-screen" class="aspect-video w-3/4 rounded">
+                    </div>
+
+                <div class="w-1/4 flex flex-col justify-between space-y-4">
+                    <div class="speaker-grille h-24 rounded bg-yellow-800 p-1"></div>
+                    <div class="flex justify-around items-center">
+                        <div class="static-knob"></div>
+                        <div class="static-knob"></div>
+                    </div>
+                    <div class="flex flex-wrap justify-center gap-2">
+                         <button data-channel="1" class="channel-button active bg-yellow-600 hover:bg-yellow-500 text-white font-bold p-2 rounded-md transition duration-300 text-xs w-8 h-8 flex items-center justify-center">1</button>
+                         <button data-channel="2" class="channel-button bg-yellow-600 hover:bg-yellow-500 text-white font-bold p-2 rounded-md transition duration-300 text-xs w-8 h-8 flex items-center justify-center">2</button>
+                         <button data-channel="3" class="channel-button bg-yellow-600 hover:bg-yellow-500 text-white font-bold p-2 rounded-md transition duration-300 text-xs w-8 h-8 flex items-center justify-center">3</button>
+                         <button data-channel="4" class="channel-button bg-yellow-600 hover:bg-yellow-500 text-white font-bold p-2 rounded-md transition duration-300 text-xs w-8 h-8 flex items-center justify-center">4</button>
+                         <button data-channel="5" class="channel-button bg-yellow-600 hover:bg-yellow-500 text-white font-bold p-2 rounded-md transition duration-300 text-xs w-8 h-8 flex items-center justify-center">5</button>
+                         <button data-channel="6" class="channel-button bg-yellow-600 hover:bg-yellow-500 text-white font-bold p-2 rounded-md transition duration-300 text-xs w-8 h-8 flex items-center justify-center">6</button>
+                         <button data-channel="7" class="channel-button bg-yellow-600 hover:bg-yellow-500 text-white font-bold p-2 rounded-md transition duration-300 text-xs w-8 h-8 flex items-center justify-center">7</button>
+                         <button data-channel="8" class="channel-button bg-yellow-600 hover:bg-yellow-500 text-white font-bold p-2 rounded-md transition duration-300 text-xs w-8 h-8 flex items-center justify-center">8</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between px-12 -mt-2">
+             <div class="tv-leg"></div>
+             <div class="tv-leg"></div>
+        </div>
+    </div>
+
+    <script>
+        const tvScreen = document.getElementById('tv-screen');
+        const channelButtons = document.querySelectorAll('.channel-button');
+
+        // 각 채널에 대한 HTML 콘텐츠 (화면 채우기 스타일 적용)
+        const channels = {
+             1: { // 뉴스 채널
+                html: `
+                    <div class="channel-background-fill bg-gradient-to-b from-gray-700 to-gray-900"></div>
+                    <div class="news-chart-container">
+                        <div class="news-bar news-bar-1"></div>
+                        <div class="news-bar news-bar-2"></div>
+                        <div class="news-bar news-bar-3"></div>
+                        <div class="news-bar news-bar-4"></div>
+                    </div>
+                    <div class="text-overlay">채널 1: 실시간 경제 지표</div>
+                `,
+                onLoad: () => {}
+            },
+            2: { // 영화 채널
+                html: `
+                    <div class="channel-background-fill bg-indigo-900"></div>
+                    <div class="movie-spotlight-overlay"></div>
+                    <div class="movie-coming-soon-text">Coming Soon</div>
+                    <div class="text-overlay">채널 2: 개봉 예정작</div>
+                `,
+                onLoad: null
+            },
+            3: { // 스포츠 채널
+                html: `
+                    <div class="channel-background-fill bg-gradient-to-b from-green-400 to-green-600"></div>
+                    <div class="sports-ball"></div>
+                    <div class="text-overlay">채널 3: 라이브 스포츠</div>
+                `,
+                onLoad: null
+            },
+            4: { // 다큐멘터리 채널
+                html: `
+                    <div class="channel-background-fill bg-black" id="starry-sky-container">
+                        </div>
+                    <div class="text-overlay">채널 4: 밤하늘의 신비</div>
+                `,
+                onLoad: () => {
+                    createStars(70);
+                }
+            },
+            5: { // 음악 채널
+                html: `
+                    <div class="channel-background-fill bg-indigo-600" style="animation: pulse-bg 2s ease-in-out infinite;"></div>
+                    <div class="music-content">♪ 최신 인기곡 ♬</div>
+                    <div class="text-overlay">채널 5: 뮤직 스테이션</div>
+                `,
+                onLoad: null
+            },
+            6: { // 날씨 채널 (구름 추가됨)
+                html: `
+                    <div class="channel-background-fill bg-gradient-to-b from-sky-400 to-sky-600"></div>
+                    <div class="cloud cloud-shape-1 cloud-1"></div>
+                    <div class="cloud cloud-shape-2 cloud-2"></div>
+                    <div class="weather-sun"></div>
+                    <div class="text-overlay">채널 6: 오늘의 날씨 - 맑음</div>
+                `,
+                onLoad: null // 구름은 CSS로 처리되므로 JS 작업 불필요
+            },
+            7: { // 요리 채널
+                html: `
+                    <div class="channel-background-fill bg-slate-100"></div>
+                    <div class="cooking-pot"></div>
+                    <div class="text-overlay">채널 7: 오늘의 요리 - 맛있는 수프</div>
+                `,
+                onLoad: null
+            },
+            8: { // 게임 채널
+                html: `
+                    <div class="channel-background-fill bg-black"></div>
+                    <div class="game-paddle game-paddle-left"></div>
+                    <div class="game-paddle game-paddle-right"></div>
+                    <div class="game-ball"></div>
+                    <div class="text-overlay">채널 8: 레트로 게임 타임</div>
+                `,
+                onLoad: null
+            }
+        };
+
+        // 별 생성 함수 (채널 4용)
+        function createStars(numberOfStars) {
+            const container = document.getElementById('starry-sky-container');
+            if (!container) return;
+            container.innerHTML = ''; // Clear previous stars
+            for (let i = 0; i < numberOfStars; i++) {
+                const star = document.createElement('div');
+                star.classList.add('docu-star'); // 기본 스타일 적용
+                 // 위치 및 애니메이션 지연 설정
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.animationDelay = `${Math.random() * 3}s`;
+                // 크기 설정
+                const size = Math.random() * 2 + 1; // 1px ~ 3px
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                container.appendChild(star);
+            }
+        }
+
+        // 채널 변경 함수
+        function changeChannel(channelNumber) {
+            const channelData = channels[channelNumber];
+            if (channelData) {
+                tvScreen.innerHTML = channelData.html;
+                if (channelData.onLoad) {
+                    setTimeout(channelData.onLoad, 0);
+                }
+                channelButtons.forEach(button => {
+                    button.classList.remove('active', 'bg-orange-600');
+                    button.classList.add('bg-yellow-600');
+                    if (button.getAttribute('data-channel') === channelNumber) {
+                        button.classList.add('active');
+                        button.classList.remove('bg-yellow-600');
+                        button.classList.add('bg-orange-600');
+                    }
+                });
+            } else {
+                tvScreen.innerHTML = `<div class="flex items-center justify-center h-full text-white text-2xl font-bold">신호 없음</div>`;
+                channelButtons.forEach(button => {
+                    button.classList.remove('active', 'bg-orange-600');
+                    button.classList.add('bg-yellow-600');
+                });
+            }
+        }
+
+        // 채널 버튼에 이벤트 리스너 추가
+        channelButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const channel = button.getAttribute('data-channel');
+                changeChannel(channel);
+            });
+        });
+
+        // 페이지 로드 시 기본 채널(1번) 설정
+        changeChannel('1');
+    </script>
+
+</body>
+</html>
